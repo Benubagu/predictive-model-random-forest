@@ -109,6 +109,14 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     for col in FEATURE_NAMES:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    # Some non-Cleveland UCI cohorts (e.g. Switzerland, VA Long Beach) encode
+    # missing cholesterol/blood pressure as a literal 0 rather than '?', which
+    # is physiologically impossible in a living patient. Treat as missing
+    # rather than letting the model learn "0" as informative. No-op on the
+    # Cleveland data, which has no such rows.
+    for col in ("chol", "trestbps"):
+        df.loc[df[col] == 0, col] = np.nan
+
     # Binary target: any diagnosis > 0 means disease present
     df["target"] = (df["diagnosis"] > 0).astype(int)
 

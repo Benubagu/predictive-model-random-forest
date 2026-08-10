@@ -36,3 +36,11 @@ column: `0` = no disease, any value `> 0` = disease present.
 - Class balance in the raw multi-class counts is mildly imbalanced
   (164 vs 139), which is why `RandomForestClassifier` is trained with
   `class_weight="balanced"`.
+- `data/external/` holds three sibling UCI cohorts (Hungarian, Switzerland,
+  VA Long Beach) used for external validation only — see
+  `external_validation.py` and the model card. They are **not** used for
+  training. Two of them encode missing cholesterol as a literal `0`
+  instead of `?` (all 123 Switzerland rows; 49/200 VA rows) — physiologically
+  impossible in a living patient. `clean_data()` treats `chol`/`trestbps`
+  values of exactly `0` as missing for this reason; Cleveland has no such
+  rows, so this is a no-op on the training data.

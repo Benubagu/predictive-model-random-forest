@@ -19,6 +19,8 @@ if sys.version_info < MIN_PYTHON:
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 DATA_PATH = PROJECT_ROOT / "data" / "heart.csv"
+EXTERNAL_DATA_DIR = PROJECT_ROOT / "data" / "external"
+EXTERNAL_COHORTS = ["hungarian", "switzerland", "va"]
 MODEL_DIR = PROJECT_ROOT / "model"
 MODEL_PATH = MODEL_DIR / "random_forest_heart_model.joblib"
 THRESHOLD_PATH = MODEL_DIR / "operating_threshold.json"

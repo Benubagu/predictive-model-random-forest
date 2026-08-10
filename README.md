@@ -3,6 +3,11 @@
 A complete, working machine learning system that diagnoses the likely presence
 of heart disease from patient clinical data using the Random Forest algorithm.
 
+**Not a clinical tool** — see the disclaimer in `docs/model_card.md`. For a
+narrative walkthrough (EDA → preprocessing → methodology → results), see
+`docs/report.md`; for exact metrics, confidence intervals, and limitations,
+see `docs/model_card.md`.
+
 ## Dataset
 
 Cleveland Heart Disease dataset (UCI Machine Learning Repository) — 303 patient
@@ -30,17 +35,22 @@ records, 13 clinical attributes. The original multi-class severity label
 ```
 .
 ├── data/
-│   └── heart.csv                  # Raw dataset
+│   ├── heart.csv                  # Raw training dataset (Cleveland)
+│   └── external/                  # Hungarian/Switzerland/VA cohorts -- validation only, never trained on
 ├── docs/
-│   └── data_dictionary.md          # Attribute reference + data quality notes
+│   ├── data_dictionary.md          # Attribute reference + data quality notes
+│   ├── model_card.md               # Intended use, metrics + CIs, limitations, disclaimer
+│   └── report.md                   # EDA -> preprocessing -> methodology -> results write-up
 ├── model/                          # Trained pipeline + threshold (created by train_model.py, gitignored)
-├── output/                         # Metrics + plots (created by train_model.py, gitignored)
+├── output/                         # Metrics + plots (created by train_model.py etc., gitignored)
 ├── tests/                           # pytest regression suite
 ├── config.py                       # Paths, seeds, CV folds, param grid
 ├── preprocessing.py                # Data loading, cleaning, integrity check
-├── evaluation.py                   # Nested CV, bootstrap CIs, threshold selection
+├── evaluation.py                   # Nested CV, bootstrap CIs, threshold selection, baseline pipelines
 ├── train_model.py                  # Orchestrates training + evaluation, saves artifacts
 ├── predict.py                      # CLI diagnosis tool for new patients
+├── external_validation.py          # Scores the trained model against the external cohorts
+├── benchmark.py                    # Random Forest vs. Logistic Regression vs. Decision Tree
 ├── run.sh                          # One command: clean + train (or install/test/clean alone)
 ├── pytest.ini
 ├── requirements.txt
@@ -73,6 +83,11 @@ records, 13 clinical attributes. The original multi-class severity label
 4. **predict.py** — loads the saved pipeline and the tuned threshold, then
    diagnoses a new patient (missing fields are left blank and imputed by
    the pipeline) either interactively or via `predict_patient()`.
+5. **external_validation.py** *(optional, run after training)* — scores
+   the trained model against three external UCI cohorts it never saw.
+6. **benchmark.py** *(optional)* — runs the same nested CV protocol over
+   Random Forest, Logistic Regression, and a Decision Tree for an
+   apples-to-apples comparison.
 
 ## Results obtained
 
@@ -108,6 +123,39 @@ ranks them highly, while permutation importance — computed by measuring
 the F1 drop from shuffling each feature on genuinely held-out folds — does
 not. `ca`, `cp`, and `thal` are the features both methods agree matter.
 
+### Does it generalize? External validation
+
+`external_validation.py` scores the Cleveland-trained model — no
+retraining, no re-imputation — against three sibling UCI cohorts it never
+saw:
+
+| Cohort | n | ROC-AUC |
+|---|---|---|
+| Hungarian | 294 | 0.894 |
+| Switzerland | 123 | 0.773 |
+| VA Long Beach | 200 | 0.741 |
+
+Holds up well on Hungarian; degrades on Switzerland/VA, where both disease
+prevalence and missingness differ substantially from Cleveland. Full
+numbers, the confounds, and what this does and doesn't imply about
+real-world robustness: `docs/model_card.md`.
+
+### Is Random Forest even the right choice? Baseline comparison
+
+`benchmark.py` runs the identical nested CV protocol (same folds, same
+seed) over Random Forest, Logistic Regression, and a single Decision Tree:
+
+| Model | Accuracy | ROC-AUC |
+|---|---|---|
+| Random Forest | 83.5% ± 3.9% | 0.908 ± 0.027 |
+| Logistic Regression | 83.8% ± 3.4% | 0.909 ± 0.017 |
+| Decision Tree | 78.5% ± 6.2% | 0.792 ± 0.063 |
+
+Logistic Regression is not beaten by Random Forest — they're
+statistically indistinguishable, with LR showing *lower* variance and
+far more interpretability. Reported plainly rather than spun in Random
+Forest's favor; see `docs/model_card.md` for the discussion.
+
 ## Running it
 
 ```bash
@@ -121,6 +169,10 @@ python predict.py
 
 # Or, one command for the above (clean + train):
 ./run.sh
+
+# Optional: score the trained model against external cohorts / compare to baselines
+python external_validation.py
+python benchmark.py
 ```
 
 `run.sh` also has `install`, `train`, `test`, and `clean` targets
@@ -146,9 +198,12 @@ that file for exactly what was tested against.
 
 ## Notes for the write-up
 
-- Random Forest was chosen for its robustness to noisy/mixed-type clinical
-  data, resistance to overfitting relative to a single decision tree, and
-  the interpretability afforded by feature importance scores.
+- Random Forest was the starting point for its robustness to noisy/mixed-type
+  clinical data and the interpretability afforded by feature importance
+  scores — but the baseline comparison above shows it isn't actually
+  outperforming Logistic Regression on this dataset. That's a legitimate,
+  reportable finding, not a failure: an honest baseline comparison beats an
+  unexamined assumption that the more complex model must be better.
 - `class_weight="balanced"` is used in the classifier to reduce bias from
   the mild class imbalance (164 vs 139 in the raw multi-class counts).
 - Raw Random Forest probabilities are not automatically trustworthy as

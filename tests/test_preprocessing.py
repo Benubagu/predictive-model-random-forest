@@ -1,7 +1,8 @@
+import pandas as pd
 import pytest
 
 from preprocessing import (
-    EXPECTED_COLUMNS, EXPECTED_ROWS, FEATURE_NAMES, validate_raw_data,
+    EXPECTED_COLUMNS, EXPECTED_ROWS, FEATURE_NAMES, clean_data, validate_raw_data,
 )
 
 
@@ -48,3 +49,23 @@ def test_get_features_and_target_shapes(features_target):
     X, y = features_target
     assert list(X.columns) == FEATURE_NAMES
     assert len(X) == len(y) == EXPECTED_ROWS
+
+
+def test_clean_data_treats_implausible_zero_chol_and_trestbps_as_missing(raw_df):
+    # Switzerland/VA cohorts encode missing cholesterol as a literal 0
+    # (physiologically impossible) rather than '?'. Simulate that here
+    # since Cleveland itself has no such rows.
+    corrupted = raw_df.copy()
+    corrupted.loc[corrupted.index[0], "chol"] = 0
+    corrupted.loc[corrupted.index[1], "trestbps"] = 0
+    clean = clean_data(corrupted)
+    assert pd.isna(clean.loc[clean.index[0], "chol"])
+    assert pd.isna(clean.loc[clean.index[1], "trestbps"])
+
+
+def test_clean_data_leaves_genuine_zero_values_alone(raw_df):
+    # fbs/exang/sex are legitimately 0/1 -- clean_data's zero->NaN rule is
+    # scoped to chol/trestbps only and must not touch these.
+    clean = clean_data(raw_df)
+    assert (clean["fbs"] == 0).sum() > 0
+    assert (clean["sex"] == 0).sum() > 0

@@ -31,12 +31,15 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.inspection import permutation_importance
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     accuracy_score, average_precision_score, confusion_matrix,
     f1_score, precision_score, recall_score, roc_auc_score,
 )
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.tree import DecisionTreeClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +52,24 @@ def build_pipeline(random_state):
     ])
 
 
-def _fold_metrics(y_true, y_proba, threshold=0.5):
+def build_baseline_pipeline(model_name, random_state):
+    """Imputation (+ scaling for logreg) + a simpler classifier, for
+    benchmarking against the production Random Forest in benchmark.py."""
+    if model_name == "logreg":
+        return Pipeline([
+            ("impute", SimpleImputer(strategy="median")),
+            ("scale", StandardScaler()),
+            ("clf", LogisticRegression(random_state=random_state, class_weight="balanced", max_iter=1000)),
+        ])
+    if model_name == "dtree":
+        return Pipeline([
+            ("impute", SimpleImputer(strategy="median")),
+            ("clf", DecisionTreeClassifier(random_state=random_state, class_weight="balanced")),
+        ])
+    raise ValueError(f"Unknown model_name: {model_name!r}")
+
+
+def compute_metrics(y_true, y_proba, threshold=0.5):
     y_pred = (y_proba >= threshold).astype(int)
     return {
         "accuracy": accuracy_score(y_true, y_pred),
@@ -119,7 +139,7 @@ def nested_cv_evaluate(X, y, feature_names, param_grid, outer_folds, inner_folds
         calibrated.fit(X_train, y_train)
         oof_proba_calibrated[test_idx] = calibrated.predict_proba(X_test)[:, 1]
 
-        metrics = _fold_metrics(y_test.to_numpy(), proba_raw)
+        metrics = compute_metrics(y_test.to_numpy(), proba_raw)
         metrics["fold"] = fold_idx
         metrics["best_params"] = search.best_params_
         fold_metrics.append(metrics)
@@ -157,6 +177,52 @@ def nested_cv_evaluate(X, y, feature_names, param_grid, outer_folds, inner_folds
     }
 
 
+def nested_cv_compare(X, y, pipeline_builder, param_grid, outer_folds, inner_folds, random_state):
+    """
+    A leaner nested CV for benchmarking a candidate model against the
+    production Random Forest: honest mean/std performance only, no
+    calibration or permutation importance (those are specific to the
+    production model's deployment story in train_model.py, not to a
+    baseline comparison). See nested_cv_evaluate for the full version and
+    the rationale for nested CV in general.
+    """
+    X = X.reset_index(drop=True)
+    y = y.reset_index(drop=True)
+
+    outer_cv = StratifiedKFold(n_splits=outer_folds, shuffle=True, random_state=random_state)
+    fold_metrics = []
+
+    for fold_idx, (train_idx, test_idx) in enumerate(outer_cv.split(X, y)):
+        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+
+        inner_cv = StratifiedKFold(n_splits=inner_folds, shuffle=True, random_state=random_state)
+        search = GridSearchCV(
+            estimator=pipeline_builder(random_state),
+            param_grid=param_grid,
+            cv=inner_cv,
+            scoring="f1",
+            n_jobs=-1,
+        )
+        search.fit(X_train, y_train)
+        proba = search.predict_proba(X_test)[:, 1]
+
+        metrics = compute_metrics(y_test.to_numpy(), proba)
+        metrics["fold"] = fold_idx
+        metrics["best_params"] = search.best_params_
+        fold_metrics.append(metrics)
+
+    metric_names = ["accuracy", "precision", "recall", "f1_score", "roc_auc", "pr_auc"]
+    summary = {
+        m: {
+            "mean": float(np.mean([fm[m] for fm in fold_metrics])),
+            "std": float(np.std([fm[m] for fm in fold_metrics])),
+        }
+        for m in metric_names
+    }
+    return {"fold_metrics": fold_metrics, "summary": summary}
+
+
 def bootstrap_ci(y_true, y_proba, n_boot, random_state, alpha=0.05, threshold=0.5):
     """
     Percentile bootstrap CIs for accuracy/precision/recall/f1/roc_auc/pr_auc,
@@ -175,7 +241,7 @@ def bootstrap_ci(y_true, y_proba, n_boot, random_state, alpha=0.05, threshold=0.
         yt, yp = y_true[idx], y_proba[idx]
         if len(np.unique(yt)) < 2:
             continue  # roc_auc/pr_auc undefined for a single-class resample
-        m = _fold_metrics(yt, yp, threshold=threshold)
+        m = compute_metrics(yt, yp, threshold=threshold)
         for k in samples:
             samples[k].append(m[k])
 

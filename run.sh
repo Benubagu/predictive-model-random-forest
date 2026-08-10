@@ -7,6 +7,8 @@
 #   ./run.sh train      # train only (skip clean)
 #   ./run.sh test       # run the pytest suite (fast subset; skips @slow)
 #   ./run.sh clean      # remove generated model/output artifacts
+#   ./run.sh external   # score the trained model against external UCI cohorts
+#   ./run.sh benchmark  # compare Random Forest vs. Logistic Regression vs. Decision Tree
 
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -30,16 +32,26 @@ train() {
     "$PYTHON" train_model.py
 }
 
+external() {
+    "$PYTHON" external_validation.py
+}
+
+benchmark() {
+    "$PYTHON" benchmark.py
+}
+
 run_tests() {
     "$PYTHON" -m pip show pytest >/dev/null 2>&1 || "$PYTHON" -m pip install -r requirements-dev.txt
     "$PYTHON" -m pytest -m "not slow"
 }
 
 case "${1:-all}" in
-    install) install ;;
-    clean)   clean ;;
-    train)   train ;;
-    test)    run_tests ;;
-    all)     clean; train ;;
-    *) echo "Usage: $0 [install|clean|train|test|all]" >&2; exit 1 ;;
+    install)   install ;;
+    clean)     clean ;;
+    train)     train ;;
+    test)      run_tests ;;
+    external)  external ;;
+    benchmark) benchmark ;;
+    all)       clean; train ;;
+    *) echo "Usage: $0 [install|clean|train|test|external|benchmark|all]" >&2; exit 1 ;;
 esac
