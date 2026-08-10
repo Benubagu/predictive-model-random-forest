@@ -12,10 +12,11 @@ Or import predict_patient() into other code / a web interface.
 """
 
 import joblib
+import numpy as np
 import pandas as pd
-from preprocessing import FEATURE_NAMES, FEATURE_DESCRIPTIONS
 
-MODEL_PATH = "model/random_forest_heart_model.joblib"
+from config import MODEL_PATH
+from preprocessing import FEATURE_NAMES, FEATURE_DESCRIPTIONS
 
 
 def load_model(path=MODEL_PATH):
@@ -35,17 +36,22 @@ def predict_patient(model, patient: dict):
 
 
 def prompt_for_patient():
-    print("Enter patient clinical data:\n")
+    """Prompt for each feature; a blank answer is recorded as missing (NaN)
+    and imputed by the saved pipeline, same as during training."""
+    print("Enter patient clinical data (leave blank if unknown):\n")
     patient = {}
     for feat in FEATURE_NAMES:
         desc = FEATURE_DESCRIPTIONS[feat]
         while True:
             raw = input(f"{feat} ({desc}): ").strip()
+            if not raw:
+                patient[feat] = np.nan
+                break
             try:
                 patient[feat] = float(raw)
                 break
             except ValueError:
-                print("  Please enter a numeric value.")
+                print("  Please enter a numeric value, or leave blank if unknown.")
     return patient
 
 

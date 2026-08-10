@@ -6,6 +6,12 @@ Random Forest heart disease diagnosis system.
 
 Dataset: Cleveland Heart Disease dataset (UCI Machine Learning Repository)
 303 patient records, 13 clinical attributes + target label.
+
+Note: this module does NOT impute missing values. Imputation is a fold-
+dependent statistic (the median must come from the training fold only),
+so it lives inside the sklearn Pipeline built in train_model.py, fit
+fresh on each cross-validation split rather than once on the full
+dataset before splitting.
 """
 
 import pandas as pd
@@ -45,20 +51,16 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     Clean the raw dataset:
       - Replace '?' missing-value markers with NaN
       - Cast all feature columns to numeric
-      - Impute missing values with column median
       - Collapse the multi-class diagnosis (0-4) into a binary
         target: 0 = no heart disease, 1 = heart disease present
+
+    Missing values are left as NaN — see module docstring.
     """
     df = df.copy()
     df.replace("?", np.nan, inplace=True)
 
     for col in FEATURE_NAMES:
         df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    # Median imputation for the small number of missing values
-    for col in FEATURE_NAMES:
-        if df[col].isna().any():
-            df[col] = df[col].fillna(df[col].median())
 
     # Binary target: any diagnosis > 0 means disease present
     df["target"] = (df["diagnosis"] > 0).astype(int)
@@ -73,8 +75,12 @@ def get_features_and_target(df: pd.DataFrame):
 
 
 if __name__ == "__main__":
-    raw = load_raw_data("data/heart.csv")
+    from config import DATA_PATH
+
+    raw = load_raw_data(DATA_PATH)
     clean = clean_data(raw)
     print(clean[FEATURE_NAMES + ["target"]].describe())
+    print("\nMissing values per column:")
+    print(clean[FEATURE_NAMES].isna().sum())
     print("\nClass balance:")
     print(clean["target"].value_counts())
