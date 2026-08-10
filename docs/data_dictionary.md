@@ -30,7 +30,9 @@ column: `0` = no disease, any value `> 0` = disease present.
 
 - A small number of missing values are encoded as `?` in the raw CSV
   (mainly in `ca` and `thal`). `preprocessing.py` converts these to `NaN`
-  and imputes with the column median.
+  but does not impute — imputation happens inside the training pipeline
+  (see `evaluation.build_pipeline`), refit on each CV fold, so the median
+  used for a held-out patient never comes from that patient's own fold.
 - Class balance in the raw multi-class counts is mildly imbalanced
   (164 vs 139), which is why `RandomForestClassifier` is trained with
   `class_weight="balanced"`.

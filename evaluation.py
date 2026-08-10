@@ -1,0 +1,219 @@
+"""
+evaluation.py
+--------------
+Nested cross-validation, bootstrap confidence intervals, and decision
+threshold selection for the Random Forest heart disease pipeline.
+
+Why nested CV: with n=303 patients, a single 80/20 train/test split
+puts ~61 patients in the test set. A single point estimate on 61
+patients is too noisy to quote to a tenth of a percent, and the split
+itself is an arbitrary source of variance. Nested CV instead uses
+every patient as a test case exactly once (the outer loop), while
+hyperparameter selection for each outer fold happens on an entirely
+separate inner loop that never sees that fold's test data. All
+preprocessing (median imputation) is fit inside the pipeline, so it is
+refit on each inner training fold too — nothing about the held-out
+patients, in any fold, influences their own prediction.
+
+The outer loop also produces two out-of-fold (OOF) probability arrays
+covering the full dataset: "raw" (the tuned pipeline's own
+predict_proba) and "calibrated" (the same pipeline wrapped in
+CalibratedClassifierCV, fit only on that fold's training data). Both
+are honest, leakage-free predictions for every patient and are used
+downstream for the ROC/PR/calibration curves, bootstrap CIs, and
+threshold selection — no additional holdout split is needed.
+"""
+
+import logging
+
+import numpy as np
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.impute import SimpleImputer
+from sklearn.inspection import permutation_importance
+from sklearn.metrics import (
+    accuracy_score, average_precision_score, confusion_matrix,
+    f1_score, precision_score, recall_score, roc_auc_score,
+)
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.pipeline import Pipeline
+
+logger = logging.getLogger(__name__)
+
+
+def build_pipeline(random_state):
+    """Imputation + Random Forest, fit together so imputation stays inside CV."""
+    return Pipeline([
+        ("impute", SimpleImputer(strategy="median")),
+        ("rf", RandomForestClassifier(random_state=random_state, class_weight="balanced")),
+    ])
+
+
+def _fold_metrics(y_true, y_proba, threshold=0.5):
+    y_pred = (y_proba >= threshold).astype(int)
+    return {
+        "accuracy": accuracy_score(y_true, y_pred),
+        "precision": precision_score(y_true, y_pred, zero_division=0),
+        "recall": recall_score(y_true, y_pred, zero_division=0),
+        "f1_score": f1_score(y_true, y_pred, zero_division=0),
+        "roc_auc": roc_auc_score(y_true, y_proba),
+        "pr_auc": average_precision_score(y_true, y_proba),
+    }
+
+
+def nested_cv_evaluate(X, y, feature_names, param_grid, outer_folds, inner_folds,
+                        random_state, calibration_method, perm_repeats):
+    """
+    Run nested cross-validation.
+
+    Returns a dict with:
+      fold_metrics          - list of per-fold metric dicts (raw, threshold=0.5)
+      summary               - {metric: {"mean": ..., "std": ...}} across outer folds
+      oof_true               - np.ndarray, true labels aligned to X's row order
+      oof_proba_raw          - np.ndarray, out-of-fold probabilities from the tuned
+                                pipeline (no calibration)
+      oof_proba_calibrated   - np.ndarray, out-of-fold probabilities from the same
+                                pipeline wrapped in CalibratedClassifierCV
+      perm_importance_mean   - np.ndarray, permutation importance averaged across
+                                outer folds (each fold's importances computed on
+                                that fold's held-out test data)
+      perm_importance_std    - np.ndarray, std of per-fold mean importances
+    """
+    X = X.reset_index(drop=True)
+    y = y.reset_index(drop=True)
+    n = len(y)
+
+    outer_cv = StratifiedKFold(n_splits=outer_folds, shuffle=True, random_state=random_state)
+
+    fold_metrics = []
+    oof_proba_raw = np.full(n, np.nan)
+    oof_proba_calibrated = np.full(n, np.nan)
+    fold_importances = []
+
+    for fold_idx, (train_idx, test_idx) in enumerate(outer_cv.split(X, y)):
+        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
+        y_train, y_test = y.iloc[train_idx], y.iloc[test_idx]
+
+        inner_cv = StratifiedKFold(n_splits=inner_folds, shuffle=True, random_state=random_state)
+        search = GridSearchCV(
+            estimator=build_pipeline(random_state),
+            param_grid=param_grid,
+            cv=inner_cv,
+            scoring="f1",
+            n_jobs=-1,
+        )
+        search.fit(X_train, y_train)
+        best_pipeline = search.best_estimator_
+
+        proba_raw = best_pipeline.predict_proba(X_test)[:, 1]
+        oof_proba_raw[test_idx] = proba_raw
+
+        # Fresh (unfit) pipeline with the winning hyperparameters, wrapped for
+        # calibration — CalibratedClassifierCV needs to do its own internal
+        # fitting, so it can't reuse best_pipeline, which is already fit.
+        calibrated = CalibratedClassifierCV(
+            estimator=build_pipeline(random_state).set_params(**search.best_params_),
+            method=calibration_method,
+            cv=inner_cv,
+        )
+        calibrated.fit(X_train, y_train)
+        oof_proba_calibrated[test_idx] = calibrated.predict_proba(X_test)[:, 1]
+
+        metrics = _fold_metrics(y_test.to_numpy(), proba_raw)
+        metrics["fold"] = fold_idx
+        metrics["best_params"] = search.best_params_
+        fold_metrics.append(metrics)
+
+        perm_result = permutation_importance(
+            best_pipeline, X_test, y_test, n_repeats=perm_repeats,
+            random_state=random_state, scoring="f1",
+        )
+        fold_importances.append(perm_result.importances_mean)
+
+        logger.info(
+            "Outer fold %d/%d: params=%s  f1=%.4f  roc_auc=%.4f",
+            fold_idx + 1, outer_folds, search.best_params_, metrics["f1_score"], metrics["roc_auc"],
+        )
+
+    metric_names = ["accuracy", "precision", "recall", "f1_score", "roc_auc", "pr_auc"]
+    summary = {
+        m: {
+            "mean": float(np.mean([fm[m] for fm in fold_metrics])),
+            "std": float(np.std([fm[m] for fm in fold_metrics])),
+        }
+        for m in metric_names
+    }
+
+    fold_importances = np.array(fold_importances)  # (outer_folds, n_features)
+
+    return {
+        "fold_metrics": fold_metrics,
+        "summary": summary,
+        "oof_true": y.to_numpy(),
+        "oof_proba_raw": oof_proba_raw,
+        "oof_proba_calibrated": oof_proba_calibrated,
+        "perm_importance_mean": fold_importances.mean(axis=0),
+        "perm_importance_std": fold_importances.std(axis=0),
+    }
+
+
+def bootstrap_ci(y_true, y_proba, n_boot, random_state, alpha=0.05, threshold=0.5):
+    """
+    Percentile bootstrap CIs for accuracy/precision/recall/f1/roc_auc/pr_auc,
+    resampling (y_true, y_proba) pairs with replacement.
+    """
+    rng = np.random.default_rng(random_state)
+    n = len(y_true)
+    y_true = np.asarray(y_true)
+    y_proba = np.asarray(y_proba)
+
+    samples = {m: [] for m in ["accuracy", "precision", "recall", "f1_score", "roc_auc", "pr_auc"]}
+    attempts = 0
+    while len(samples["roc_auc"]) < n_boot and attempts < n_boot * 3:
+        attempts += 1
+        idx = rng.integers(0, n, n)
+        yt, yp = y_true[idx], y_proba[idx]
+        if len(np.unique(yt)) < 2:
+            continue  # roc_auc/pr_auc undefined for a single-class resample
+        m = _fold_metrics(yt, yp, threshold=threshold)
+        for k in samples:
+            samples[k].append(m[k])
+
+    ci = {}
+    for k, values in samples.items():
+        values = np.array(values)
+        lo, hi = np.percentile(values, [100 * alpha / 2, 100 * (1 - alpha / 2)])
+        ci[k] = {"mean": float(values.mean()), "ci_low": float(lo), "ci_high": float(hi)}
+    return ci
+
+
+def select_operating_threshold(y_true, y_proba, target_sensitivity):
+    """
+    Pick the highest decision threshold whose sensitivity (recall on the
+    disease class) is still >= target_sensitivity, maximizing specificity
+    subject to that floor. Falls back to 0.5 if no threshold clears it.
+    """
+    y_true = np.asarray(y_true)
+    y_proba = np.asarray(y_proba)
+
+    best_threshold, best_specificity, best_sensitivity = None, -1.0, None
+    for t in np.unique(y_proba):
+        y_pred = (y_proba >= t).astype(int)
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
+        sensitivity = tp / (tp + fn) if (tp + fn) else 0.0
+        specificity = tn / (tn + fp) if (tn + fp) else 0.0
+        if sensitivity >= target_sensitivity and specificity > best_specificity:
+            best_threshold, best_specificity, best_sensitivity = float(t), specificity, sensitivity
+
+    if best_threshold is None:
+        logger.warning(
+            "No threshold reaches target sensitivity %.3f; falling back to 0.5",
+            target_sensitivity,
+        )
+        y_pred = (y_proba >= 0.5).astype(int)
+        tn, fp, fn, tp = confusion_matrix(y_true, y_pred, labels=[0, 1]).ravel()
+        best_threshold = 0.5
+        best_sensitivity = tp / (tp + fn) if (tp + fn) else 0.0
+        best_specificity = tn / (tn + fp) if (tn + fp) else 0.0
+
+    return best_threshold, best_sensitivity, best_specificity

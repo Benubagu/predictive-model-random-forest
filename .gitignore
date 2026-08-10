@@ -1,4 +1,5 @@
 model/*.joblib
+model/*.json
 output/*.png
 output/*.json
 output/*.txt

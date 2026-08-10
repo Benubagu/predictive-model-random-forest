@@ -11,26 +11,40 @@ Usage:
 Or import predict_patient() into other code / a web interface.
 """
 
+import json
+
 import joblib
 import numpy as np
 import pandas as pd
 
-from config import MODEL_PATH
+from config import MODEL_PATH, THRESHOLD_PATH
 from preprocessing import FEATURE_NAMES, FEATURE_DESCRIPTIONS
+
+DEFAULT_THRESHOLD = 0.5
 
 
 def load_model(path=MODEL_PATH):
     return joblib.load(path)
 
 
-def predict_patient(model, patient: dict):
+def load_threshold(path=THRESHOLD_PATH):
+    """Load the sensitivity-tuned operating threshold saved by train_model.py.
+    Falls back to 0.5 if the model was trained before this existed."""
+    try:
+        with open(path) as f:
+            return json.load(f)["threshold"]
+    except (FileNotFoundError, KeyError, json.JSONDecodeError):
+        return DEFAULT_THRESHOLD
+
+
+def predict_patient(model, patient: dict, threshold=DEFAULT_THRESHOLD):
     """
     patient: dict with keys matching FEATURE_NAMES
     Returns: (prediction_label, probability_of_disease)
     """
     X = pd.DataFrame([patient])[FEATURE_NAMES]
     proba = model.predict_proba(X)[0, 1]
-    pred = int(proba >= 0.5)
+    pred = int(proba >= threshold)
     label = "Heart Disease Likely" if pred == 1 else "No Heart Disease Indicated"
     return label, proba
 
@@ -57,7 +71,9 @@ def prompt_for_patient():
 
 if __name__ == "__main__":
     model = load_model()
+    threshold = load_threshold()
     patient = prompt_for_patient()
-    label, proba = predict_patient(model, patient)
+    label, proba = predict_patient(model, patient, threshold)
     print(f"\nPrediction: {label}")
     print(f"Predicted probability of heart disease: {proba:.1%}")
+    print(f"(decision threshold: {threshold:.1%}, tuned for high sensitivity)")
