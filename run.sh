@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# run.sh - reproduce every artifact from raw data with one command.
+#
+# Usage:
+#   ./run.sh            # clean + train (regenerates model/ and output/)
+#   ./run.sh install    # pip install -r requirements.txt
+#   ./run.sh train      # train only (skip clean)
+#   ./run.sh test       # run the pytest suite (fast subset; skips @slow)
+#   ./run.sh clean      # remove generated model/output artifacts
+
+set -euo pipefail
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+# Prefer `python` over `python3`: on Windows in particular, `python3` can
+# resolve to the App Execution Alias stub (a distinct, partially-populated
+# environment under WindowsApps/) rather than your real installation. Override
+# with `PYTHON=python3 ./run.sh` if your system is the other way around.
+PYTHON="${PYTHON:-python}"
+command -v "$PYTHON" >/dev/null 2>&1 || PYTHON=python3
+
+install() {
+    "$PYTHON" -m pip install -r requirements.txt
+}
+
+clean() {
+    rm -f model/*.joblib model/*.json output/*.png output/*.json output/*.txt
+}
+
+train() {
+    "$PYTHON" train_model.py
+}
+
+run_tests() {
+    "$PYTHON" -m pip show pytest >/dev/null 2>&1 || "$PYTHON" -m pip install -r requirements-dev.txt
+    "$PYTHON" -m pytest -m "not slow"
+}
+
+case "${1:-all}" in
+    install) install ;;
+    clean)   clean ;;
+    train)   train ;;
+    test)    run_tests ;;
+    all)     clean; train ;;
+    *) echo "Usage: $0 [install|clean|train|test|all]" >&2; exit 1 ;;
+esac

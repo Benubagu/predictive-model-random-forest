@@ -6,7 +6,15 @@ system. train_model.py, evaluation.py, and predict.py all import from
 here so they never disagree on where data, models, or outputs live.
 """
 
+import sys
 from pathlib import Path
+
+MIN_PYTHON = (3, 9)
+if sys.version_info < MIN_PYTHON:
+    raise RuntimeError(
+        f"Python {'.'.join(map(str, MIN_PYTHON))}+ required, "
+        f"found {sys.version.split()[0]}"
+    )
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 

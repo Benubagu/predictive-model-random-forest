@@ -35,12 +35,16 @@ records, 13 clinical attributes. The original multi-class severity label
 │   └── data_dictionary.md          # Attribute reference + data quality notes
 ├── model/                          # Trained pipeline + threshold (created by train_model.py, gitignored)
 ├── output/                         # Metrics + plots (created by train_model.py, gitignored)
+├── tests/                           # pytest regression suite
 ├── config.py                       # Paths, seeds, CV folds, param grid
-├── preprocessing.py                # Data loading, cleaning (no imputation — see below)
+├── preprocessing.py                # Data loading, cleaning, integrity check
 ├── evaluation.py                   # Nested CV, bootstrap CIs, threshold selection
 ├── train_model.py                  # Orchestrates training + evaluation, saves artifacts
 ├── predict.py                      # CLI diagnosis tool for new patients
+├── run.sh                          # One command: clean + train (or install/test/clean alone)
+├── pytest.ini
 ├── requirements.txt
+├── requirements-dev.txt            # requirements.txt + pytest
 ├── .gitignore
 └── README.md
 ```
@@ -110,11 +114,35 @@ not. `ca`, `cp`, and `thal` are the features both methods agree matter.
 pip install -r requirements.txt
 
 # Train (also re-generates the model + all output artifacts)
-python3 train_model.py
+python train_model.py
 
 # Diagnose a new patient interactively
-python3 predict.py
+python predict.py
+
+# Or, one command for the above (clean + train):
+./run.sh
 ```
+
+`run.sh` also has `install`, `train`, `test`, and `clean` targets
+(`./run.sh test` runs the pytest suite). It prefers the `python` command
+over `python3` — on Windows, `python3` can resolve to the App Execution
+Alias stub under `WindowsApps/`, a distinct, partially-populated Python
+environment that will fail trying to build `matplotlib` from source. Set
+`PYTHON=python3 ./run.sh` if your system is the other way around.
+
+## Testing
+
+```bash
+pip install -r requirements-dev.txt
+pytest                  # full suite, including the ~90s nested-CV regression test
+pytest -m "not slow"    # fast subset only
+```
+
+## Environment
+
+Tested on Python 3.12; `config.py` enforces a minimum of Python 3.9 at
+import time. Dependency versions are pinned in `requirements.txt` — see
+that file for exactly what was tested against.
 
 ## Notes for the write-up
 

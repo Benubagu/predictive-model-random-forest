@@ -9,7 +9,7 @@ Dataset: Cleveland Heart Disease dataset (UCI Machine Learning Repository)
 
 Note: this module does NOT impute missing values. Imputation is a fold-
 dependent statistic (the median must come from the training fold only),
-so it lives inside the sklearn Pipeline built in train_model.py, fit
+so it lives inside the sklearn Pipeline built in evaluation.py, fit
 fresh on each cross-validation split rather than once on the full
 dataset before splitting.
 """
@@ -38,11 +38,58 @@ FEATURE_DESCRIPTIONS = {
     "thal": "Thalassemia (3 = normal, 6 = fixed defect, 7 = reversible defect)",
 }
 
+EXPECTED_ROWS = 303
+EXPECTED_COLUMNS = FEATURE_NAMES + ["diagnosis"]
 
-def load_raw_data(path: str) -> pd.DataFrame:
-    """Load the raw CSV and standardize column names."""
+# Known valid values for categorical/discrete columns. Anything outside
+# these sets (excluding missing values, which are handled separately)
+# means the CSV is not the Cleveland dataset we expect.
+VALID_VALUES = {
+    "sex": {0, 1},
+    "cp": {1, 2, 3, 4},
+    "fbs": {0, 1},
+    "restecg": {0, 1, 2},
+    "exang": {0, 1},
+    "slope": {1, 2, 3},
+    "ca": {0, 1, 2, 3},
+    "thal": {3, 6, 7},
+    "diagnosis": {0, 1, 2, 3, 4},
+}
+
+
+def validate_raw_data(df: pd.DataFrame) -> None:
+    """
+    Fail loudly if the loaded CSV isn't shaped like the Cleveland heart
+    disease dataset, rather than silently degrading the model on a
+    corrupted or wrong file.
+    """
+    if df.shape[0] != EXPECTED_ROWS:
+        raise ValueError(
+            f"Expected {EXPECTED_ROWS} rows, got {df.shape[0]}. "
+            "Is this the Cleveland heart.csv?"
+        )
+
+    missing_cols = set(EXPECTED_COLUMNS) - set(df.columns)
+    if missing_cols:
+        raise ValueError(f"Missing expected columns: {sorted(missing_cols)}")
+
+    for col, allowed in VALID_VALUES.items():
+        values = pd.to_numeric(df[col], errors="coerce").dropna()
+        bad = values[~values.isin(allowed)]
+        if not bad.empty:
+            raise ValueError(
+                f"Column '{col}' has values outside {sorted(allowed)}: "
+                f"{sorted(bad.unique())}"
+            )
+
+
+def load_raw_data(path: str, validate: bool = True) -> pd.DataFrame:
+    """Load the raw CSV, standardize column names, and (by default) run
+    validate_raw_data() so a corrupted or wrong file fails immediately."""
     df = pd.read_csv(path)
     df.columns = [c.strip() for c in df.columns]
+    if validate:
+        validate_raw_data(df)
     return df
 
 
