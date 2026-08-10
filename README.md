@@ -28,20 +28,18 @@ records, 13 clinical attributes. The original multi-class severity label
 ## Project structure
 
 ```
-heart_rf_system/
+.
 ├── data/
 │   └── heart.csv                  # Raw dataset
-├── model/
-│   └── random_forest_heart_model.joblib   # Trained model (created by train_model.py)
-├── output/
-│   ├── metrics.json                # Best hyperparameters + test metrics
-│   ├── classification_report.txt
-│   ├── confusion_matrix.png
-│   ├── roc_curve.png
-│   └── feature_importance.png
+├── docs/
+│   └── data_dictionary.md          # Attribute reference + data quality notes
+├── model/                          # Trained model (created by train_model.py, gitignored)
+├── output/                         # Metrics + plots (created by train_model.py, gitignored)
 ├── preprocessing.py                # Data loading, cleaning, imputation
 ├── train_model.py                  # Grid search, training, evaluation
 ├── predict.py                      # CLI diagnosis tool for new patients
+├── requirements.txt
+├── .gitignore
 └── README.md
 ```
 
@@ -74,7 +72,7 @@ chart.)
 ## Running it
 
 ```bash
-pip install pandas numpy scikit-learn matplotlib joblib
+pip install -r requirements.txt
 
 # Train (also re-generates the model + all output artifacts)
 python3 train_model.py

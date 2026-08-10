@@ -1,0 +1,6 @@
+model/*.joblib
+output/*.png
+output/*.json
+output/*.txt
+__pycache__/
+*.zip

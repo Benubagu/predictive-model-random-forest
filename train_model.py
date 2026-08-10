@@ -8,6 +8,8 @@ ROC curve, feature importance chart).
 """
 
 import json
+from pathlib import Path
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -118,6 +120,9 @@ def plot_feature_importance(model, feature_names, out_path):
 
 
 def main():
+    Path("model").mkdir(exist_ok=True)
+    Path("output").mkdir(exist_ok=True)
+
     raw = load_raw_data("data/heart.csv")
     df = clean_data(raw)
     X, y = get_features_and_target(df)
