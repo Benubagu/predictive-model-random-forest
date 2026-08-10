@@ -63,6 +63,22 @@ noted — 95% bootstrap CIs on the pooled out-of-fold predictions.
 
 These are threshold=0.5, raw (uncalibrated) pipeline numbers — the
 metrics a reader would expect from a standard classification report.
+This accuracy figure (not the operating-threshold one below) is what
+the thesis's H1₁ hypothesis is tested against.
+
+### Hypothesis tests
+
+Computed live by `evaluation.evaluate_hypotheses` from the numbers
+above and saved to `output/metrics.json` → `hypothesis_tests` (not
+hand-typed, so it cannot silently drift from the code). Full discussion:
+`docs/report.md` § "Hypothesis testing".
+
+- **H1₁** (accuracy ≥ 80%): supported on the point estimate (83.5%) but
+  the 95% CI lower bound (78.9%) falls just under 80% — reported as a
+  marginal, not clean, pass.
+- **H1₂** (attributes differ in contribution): decisively supported —
+  `ca`, `cp`, `thal` exceed one std from zero permutation importance; the
+  other ten attributes do not.
 
 ### Operating point (deployed threshold)
 
@@ -82,6 +98,9 @@ borderline patients rather than risk missing disease. A different
 
 ### Out-of-distribution: external validation
 
+Not required by the study's stated scope — thesis §1.6 lists external
+validation among directions for *future* studies — but included here to
+characterise generalisation honestly rather than leaving it for later.
 The model — trained, imputed, and calibrated exclusively on Cleveland
 data — was scored as-is against three sibling UCI cohorts it never saw,
 collected at different sites with different equipment and data
@@ -115,23 +134,16 @@ tuned to prioritize catching disease over avoiding false alarms, though
 a >90% loss in specificity at VA is a real generalization failure, not
 a minor caveat.
 
-### Baseline comparison
+### Baseline comparison (out of scope — see appendix)
 
-Under identical nested CV (same folds, same seed, `benchmark.py`):
-
-| Model | Accuracy | F1 | ROC-AUC |
-|---|---|---|---|
-| Random Forest | 83.5% ± 3.9% | 81.4% ± 4.7% | 0.908 ± 0.027 |
-| Logistic Regression | 83.8% ± 3.4% | 81.8% ± 4.1% | 0.909 ± 0.017 |
-| Decision Tree | 78.5% ± 6.2% | 76.5% ± 6.5% | 0.792 ± 0.063 |
-
-**Logistic Regression is not beaten by Random Forest here** — it's
-statistically indistinguishable on every metric, with lower fold-to-fold
-variance, and it is far more interpretable (a coefficient per feature
-vs. an ensemble of trees). At n=303 with 13 mostly-linear-ish clinical
-predictors, Random Forest's flexibility doesn't earn its complexity.
-This is reported plainly because an honest baseline comparison is worth
-more than a claim that the fancier model won.
+A supplementary comparison against Logistic Regression and a Decision
+Tree is available in `docs/appendix_baseline_comparison.md`. It is kept
+out of this document's main results because thesis §1.7 (Scope of the
+Study) states the study is "experimentally limited to the Random Forest
+algorithm" and that other algorithms "are considered in the literature
+review but are not experimentally implemented or compared as part of
+this study" — the comparison exists and is documented, but is not a
+finding of this thesis.
 
 ## Feature importance
 
@@ -150,10 +162,6 @@ importance but not under permutation importance; see
 - Single-site training data (Cleveland Clinic, one hospital, one
   demographic/referral population, data collected decades ago) —
   external validation shows this doesn't transfer uniformly.
-- Random Forest offers no real accuracy advantage over Logistic
-  Regression on this dataset; its main advantages here are the
-  non-linear split points and the impurity/permutation importance
-  comparison as an interpretability exercise, not raw performance.
 - No re-calibration or re-tuning was performed for the external cohorts;
   they are scored exactly as the Cleveland-trained model would score a
   new incoming patient, which is the point of the experiment but also
@@ -166,8 +174,9 @@ importance but not under permutation importance; see
 - Treat the external validation numbers, not the Cleveland-only numbers,
   as the honest estimate of how this would perform on a genuinely new
   patient population.
-- If pursuing this further, Logistic Regression's competitiveness is
-  worth taking seriously as the deployed model, not just a baseline.
+- If pursuing this further, see `docs/appendix_baseline_comparison.md`:
+  Logistic Regression's competitiveness there is worth taking seriously
+  in a future study whose scope includes a multi-algorithm comparison.
 - Re-run `train_model.py --target-sensitivity` at a different value
   before assuming 0.95 is the right clinical target — that number was a
   reasonable default choice for this exercise, not a validated clinical

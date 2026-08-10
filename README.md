@@ -3,10 +3,14 @@
 A complete, working machine learning system that diagnoses the likely presence
 of heart disease from patient clinical data using the Random Forest algorithm.
 
-**Not a clinical tool** — see the disclaimer in `docs/model_card.md`. For a
-narrative walkthrough (EDA → preprocessing → methodology → results), see
-`docs/report.md`; for exact metrics, confidence intervals, and limitations,
-see `docs/model_card.md`.
+> **Not for clinical use.** This model is a research/coursework artifact. It
+> has not been clinically validated and its predictions are not intended to
+> replace professional clinical judgement or established diagnostic
+> procedures — full disclaimer and limitations in `docs/model_card.md`.
+
+For a narrative walkthrough (EDA → preprocessing → methodology → results),
+see `docs/report.md`; for exact metrics, confidence intervals, and
+limitations, see `docs/model_card.md`.
 
 ## Dataset
 
@@ -125,9 +129,11 @@ not. `ca`, `cp`, and `thal` are the features both methods agree matter.
 
 ### Does it generalize? External validation
 
-`external_validation.py` scores the Cleveland-trained model — no
-retraining, no re-imputation — against three sibling UCI cohorts it never
-saw:
+Not required by the thesis's stated scope (§1.6 lists it as future work)
+but included to characterise generalisation honestly rather than leaving
+it for later. `external_validation.py` scores the Cleveland-trained
+model — no retraining, no re-imputation — against three sibling UCI
+cohorts it never saw:
 
 | Cohort | n | ROC-AUC |
 |---|---|---|
@@ -140,21 +146,16 @@ prevalence and missingness differ substantially from Cleveland. Full
 numbers, the confounds, and what this does and doesn't imply about
 real-world robustness: `docs/model_card.md`.
 
-### Is Random Forest even the right choice? Baseline comparison
+### Supplementary: baseline comparison (out of thesis scope)
 
-`benchmark.py` runs the identical nested CV protocol (same folds, same
-seed) over Random Forest, Logistic Regression, and a single Decision Tree:
-
-| Model | Accuracy | ROC-AUC |
-|---|---|---|
-| Random Forest | 83.5% ± 3.9% | 0.908 ± 0.027 |
-| Logistic Regression | 83.8% ± 3.4% | 0.909 ± 0.017 |
-| Decision Tree | 78.5% ± 6.2% | 0.792 ± 0.063 |
-
-Logistic Regression is not beaten by Random Forest — they're
-statistically indistinguishable, with LR showing *lower* variance and
-far more interpretability. Reported plainly rather than spun in Random
-Forest's favor; see `docs/model_card.md` for the discussion.
+`benchmark.py` compares Random Forest against Logistic Regression and a
+Decision Tree under an identical nested CV protocol. This is **not** a
+finding of the thesis — §1.7 (Scope of the Study) states the study is
+"experimentally limited to the Random Forest algorithm" and that other
+algorithms "are considered in the literature review but are not
+experimentally implemented or compared as part of this study." The
+comparison is implemented and preserved, not deleted, but documented
+separately: see `docs/appendix_baseline_comparison.md`.
 
 ## Running it
 
@@ -198,19 +199,18 @@ that file for exactly what was tested against.
 
 ## Notes for the write-up
 
-- Random Forest was the starting point for its robustness to noisy/mixed-type
-  clinical data and the interpretability afforded by feature importance
-  scores — but the baseline comparison above shows it isn't actually
-  outperforming Logistic Regression on this dataset. That's a legitimate,
-  reportable finding, not a failure: an honest baseline comparison beats an
-  unexamined assumption that the more complex model must be better.
+- Random Forest was chosen for its robustness to noisy/mixed-type clinical
+  data, resistance to overfitting relative to a single decision tree, and
+  the interpretability afforded by feature importance scores — see
+  `docs/appendix_baseline_comparison.md` for a supplementary (out-of-scope)
+  comparison against simpler models.
 - `class_weight="balanced"` is used in the classifier to reduce bias from
   the mild class imbalance (164 vs 139 in the raw multi-class counts).
 - Raw Random Forest probabilities are not automatically trustworthy as
   probabilities, only as rankings — `output/calibration_curve.png` compares
   the raw pipeline's reliability diagram against the calibrated
   (`CalibratedClassifierCV`, sigmoid) one. For a health-related model, a
-  calibrated probability is what makes "73% probability of disease"
+  calibrated probability is what makes "80% probability of disease"
   actually mean something, rather than just being a score that ranks
   patients relative to each other.
 - Impurity importance (`feature_importance.png`) and permutation importance

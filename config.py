@@ -47,6 +47,11 @@ PERMUTATION_REPEATS = 20
 # to 0.5. See evaluation.select_operating_threshold.
 TARGET_SENSITIVITY = 0.95
 
+# Thesis H1_1: the tuned Random Forest achieves accuracy >= 80% (threshold=0.5,
+# raw pipeline -- NOT the high-sensitivity operating threshold above, which
+# trades accuracy away deliberately). See evaluation.evaluate_hypotheses.
+ACCURACY_TARGET = 0.80
+
 # Grid search space for the Pipeline's "rf" step (see evaluation.build_pipeline).
 PARAM_GRID = {
     "rf__n_estimators": [100, 200],

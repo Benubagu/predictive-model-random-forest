@@ -40,7 +40,9 @@ from sklearn.metrics import (
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
 import config
-from evaluation import build_pipeline, bootstrap_ci, nested_cv_evaluate, select_operating_threshold
+from evaluation import (
+    build_pipeline, bootstrap_ci, evaluate_hypotheses, nested_cv_evaluate, select_operating_threshold,
+)
 from preprocessing import load_raw_data, clean_data, get_features_and_target, FEATURE_NAMES
 
 logger = logging.getLogger(__name__)
@@ -244,6 +246,14 @@ def main():
     logger.info("Top 5 features by impurity importance:    %s", list(top_impurity))
     logger.info("Top 5 features by permutation importance: %s", list(top_permutation))
 
+    hypothesis_tests = evaluate_hypotheses(
+        cv_result["summary"], ci_raw, cv_result["perm_importance_mean"], cv_result["perm_importance_std"],
+        FEATURE_NAMES, config.ACCURACY_TARGET, args.outer_folds,
+    )
+    logger.info("=== Hypothesis tests ===")
+    logger.info(hypothesis_tests["h1_accuracy_at_least_target"]["conclusion"])
+    logger.info(hypothesis_tests["h2_features_differ_in_contribution"]["conclusion"])
+
     with open(args.output / "metrics.json", "w") as f:
         json.dump({
             "n_patients": len(X),
@@ -263,6 +273,7 @@ def main():
             "impurity_importance": dict(zip(FEATURE_NAMES, impurity_importance.tolist())),
             "permutation_importance_mean": dict(zip(FEATURE_NAMES, cv_result["perm_importance_mean"].tolist())),
             "permutation_importance_std": dict(zip(FEATURE_NAMES, cv_result["perm_importance_std"].tolist())),
+            "hypothesis_tests": hypothesis_tests,
         }, f, indent=2)
 
     with open(args.output / "classification_report.txt", "w") as f:

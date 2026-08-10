@@ -8,7 +8,8 @@
 #   ./run.sh test       # run the pytest suite (fast subset; skips @slow)
 #   ./run.sh clean      # remove generated model/output artifacts
 #   ./run.sh external   # score the trained model against external UCI cohorts
-#   ./run.sh benchmark  # compare Random Forest vs. Logistic Regression vs. Decision Tree
+#   ./run.sh benchmark  # supplementary: RF vs. Logistic Regression vs. Decision Tree (out of thesis scope, see docs/appendix_baseline_comparison.md)
+#   ./run.sh tuning     # RQ3: default-hyperparameter RF vs. tuned RF (same algorithm, in scope)
 
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -40,6 +41,10 @@ benchmark() {
     "$PYTHON" benchmark.py
 }
 
+tuning() {
+    "$PYTHON" tuning_effect.py
+}
+
 run_tests() {
     "$PYTHON" -m pip show pytest >/dev/null 2>&1 || "$PYTHON" -m pip install -r requirements-dev.txt
     "$PYTHON" -m pytest -m "not slow"
@@ -52,6 +57,7 @@ case "${1:-all}" in
     test)      run_tests ;;
     external)  external ;;
     benchmark) benchmark ;;
+    tuning)    tuning ;;
     all)       clean; train ;;
-    *) echo "Usage: $0 [install|clean|train|test|external|benchmark|all]" >&2; exit 1 ;;
+    *) echo "Usage: $0 [install|clean|train|test|external|benchmark|tuning|all]" >&2; exit 1 ;;
 esac

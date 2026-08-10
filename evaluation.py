@@ -283,3 +283,91 @@ def select_operating_threshold(y_true, y_proba, target_sensitivity):
         best_specificity = tn / (tn + fp) if (tn + fp) else 0.0
 
     return best_threshold, best_sensitivity, best_specificity
+
+
+def evaluate_hypotheses(nested_cv_summary, bootstrap_ci_result, perm_importance_mean,
+                         perm_importance_std, feature_names, accuracy_target, outer_folds):
+    """
+    Formally states and evaluates the thesis's two hypotheses against this
+    run's actual results (see docs/thesis_traceability.md). Returns a
+    JSON-serializable dict written into metrics.json, so every number a
+    reader sees is read from the live run rather than hand-typed into a
+    document that can drift out of sync with the code.
+
+    H1_1 uses the nested-CV accuracy at threshold=0.5 on the raw pipeline
+    -- never the high-sensitivity operating threshold, which deliberately
+    trades accuracy away and is not what "accuracy" means here.
+
+    H1_2's "exceeds one std from zero" check is an informal spread check
+    across only 5 outer folds, not a formal significance test with
+    p-values -- that caveat is included in the conclusion text rather than
+    left implicit.
+    """
+    acc_mean = nested_cv_summary["accuracy"]["mean"]
+    acc_std = nested_cv_summary["accuracy"]["std"]
+    ci_low = bootstrap_ci_result["accuracy"]["ci_low"]
+    ci_high = bootstrap_ci_result["accuracy"]["ci_high"]
+
+    point_meets = acc_mean >= accuracy_target
+    ci_meets = ci_low >= accuracy_target
+
+    if point_meets and ci_meets:
+        h1_conclusion = (
+            f"H1_1 is supported: accuracy ({acc_mean:.1%}) meets the {accuracy_target:.0%} "
+            f"target, and the 95% CI lower bound ({ci_low:.1%}) does too."
+        )
+    elif point_meets:
+        h1_conclusion = (
+            f"H1_1 is supported on the point estimate (accuracy={acc_mean:.1%} >= "
+            f"{accuracy_target:.0%}) but not strictly at the 95% confidence level: the "
+            f"bootstrap CI lower bound ({ci_low:.1%}) falls just under the "
+            f"{accuracy_target:.0%} threshold. Reported honestly rather than rounded "
+            f"away -- n=303 is small enough that this uncertainty is real."
+        )
+    else:
+        h1_conclusion = (
+            f"H1_1 is not supported: accuracy ({acc_mean:.1%}) falls under the "
+            f"{accuracy_target:.0%} target."
+        )
+
+    importances = dict(zip(feature_names, perm_importance_mean))
+    stds = dict(zip(feature_names, perm_importance_std))
+    exceeds = sorted(
+        (f for f in feature_names if abs(importances[f]) > stds[f]),
+        key=lambda f: -importances[f],
+    )
+    indistinguishable = sorted(
+        (f for f in feature_names if f not in exceeds),
+        key=lambda f: -importances[f],
+    )
+
+    h2_conclusion = (
+        f"H1_2 is supported: {', '.join(exceeds)} show permutation importance "
+        f"exceeding one standard deviation from zero (across the {outer_folds} outer "
+        f"folds), while {', '.join(indistinguishable)} are statistically "
+        f"indistinguishable from zero contribution at that resolution. H0_2 (no "
+        f"difference in relative contribution) is rejected. Caveat: only {outer_folds} "
+        f"outer folds means this is an informal spread check, not a formal "
+        f"significance test with p-values."
+    )
+
+    return {
+        "h1_accuracy_at_least_target": {
+            "hypothesis": f"H1_1: the tuned Random Forest achieves accuracy >= {accuracy_target:.0%}",
+            "null_hypothesis": f"H0_1: the tuned Random Forest does not achieve accuracy >= {accuracy_target:.0%}",
+            "accuracy_target": accuracy_target,
+            "point_estimate": acc_mean,
+            "outer_fold_std": acc_std,
+            "bootstrap_95ci": [ci_low, ci_high],
+            "point_estimate_meets_target": point_meets,
+            "ci_lower_bound_meets_target": ci_meets,
+            "conclusion": h1_conclusion,
+        },
+        "h2_features_differ_in_contribution": {
+            "hypothesis": "H1_2: clinical attributes differ in their relative contribution to predictions",
+            "null_hypothesis": "H0_2: there is no difference in the relative contribution of clinical attributes",
+            "features_exceeding_1std_from_zero": exceeds,
+            "features_indistinguishable_from_zero": indistinguishable,
+            "conclusion": h2_conclusion,
+        },
+    }

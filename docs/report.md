@@ -101,14 +101,16 @@ order of how much they matter:
 Full figures with confidence intervals are in `docs/model_card.md`;
 summarized here.
 
-Nested CV (mean ± std across 5 outer folds), raw pipeline at threshold
-0.5:
+Nested CV (mean ± std across 5 outer folds, and the 95% bootstrap CI on
+pooled out-of-fold predictions), raw pipeline at threshold 0.5 — accuracy
+is never quoted without its interval, because the point estimate alone
+overstates how precisely n=303 pins it down:
 
-| Metric | Value |
-|---|---|
-| Accuracy | 83.5% ± 3.9% |
-| ROC-AUC | 0.908 ± 0.027 |
-| PR-AUC | 0.902 ± 0.037 |
+| Metric | Mean ± std | 95% CI |
+|---|---|---|
+| Accuracy | 83.5% ± 3.9% | [78.9%, 87.5%] |
+| ROC-AUC | 0.908 ± 0.027 | [0.874, 0.938] |
+| PR-AUC | 0.902 ± 0.037 | [0.856, 0.938] |
 
 At the tuned operating threshold (0.164, calibrated probabilities):
 97.1% sensitivity / 51.8% specificity — a deliberate over-referral
@@ -122,16 +124,79 @@ which impurity importance ranks highly but permutation importance (and
 the raw correlation) does not — a textbook case of impurity importance
 overweighting a high-cardinality continuous feature.
 
-**Baseline comparison** (`benchmark.py`, `output/model_comparison.png`):
-Logistic Regression is statistically indistinguishable from Random
-Forest on every metric (83.8% vs. 83.5% accuracy, 0.909 vs. 0.908
-ROC-AUC), with *lower* variance, and it's far more interpretable. A
-single Decision Tree clearly underperforms both (78.5% accuracy, 0.792
-ROC-AUC). The honest conclusion is that Random Forest's added
-complexity does not buy performance on this dataset — see
-`docs/model_card.md` for the full discussion.
+A supplementary comparison against Logistic Regression and a Decision
+Tree was also run (`benchmark.py`) but is documented separately in
+`docs/appendix_baseline_comparison.md`, not here — thesis §1.7 scopes
+this study to Random Forest only, so a multi-algorithm comparison, while
+implemented and preserved, is not reported as a finding of this study.
+
+## 4.1 Effect of hyperparameter tuning (RQ3)
+
+RQ3 asks: *"to what extent does hyperparameter tuning affect the
+predictive performance of the Random Forest classifier?"* `tuning_effect.py`
+answers this directly by running the same Random Forest pipeline under
+the same nested CV protocol twice — once with scikit-learn's default
+hyperparameters, once with the tuned grid search space
+(`config.PARAM_GRID`) — so the only thing that differs between the two
+runs is the hyperparameters, not the algorithm, the data, or the folds.
+
+| Metric | Default RF | Tuned RF | Delta |
+|---|---|---|---|
+| Accuracy | 81.9% ± 3.6% | 83.5% ± 3.9% | +1.6pp |
+| Precision | 81.6% ± 5.6% | 84.1% ± 4.7% | +2.5pp |
+| Recall | 78.4% ± 5.1% | 79.1% ± 7.0% | +0.7pp |
+| F1 score | 79.9% ± 3.9% | 81.4% ± 4.7% | +1.5pp |
+| ROC-AUC | 0.902 ± 0.027 | 0.908 ± 0.027 | +0.006 |
+| PR-AUC | 0.895 ± 0.035 | 0.902 ± 0.037 | +0.007 |
+
+(exact figures: `output/tuning_effect.json`; plot: `output/tuning_effect.png`)
+
+**Answer to RQ3**: hyperparameter tuning via cross-validated grid search
+produced a modest but consistent improvement across every metric — most
+notably +2.5 percentage points in precision and +1.6 in accuracy — rather
+than a dramatic one. Both default and tuned scikit-learn Random Forests
+already perform reasonably well on this dataset (default accuracy 81.9%
+is itself within the 80-90% range the literature reports for tuned
+models — see `docs/literature_comparison.md`), so tuning here is best
+read as *refining* an already-competent default rather than *rescuing* a
+poor one. This is reported as-is: a small, real, honestly-measured delta
+is a more useful answer to RQ3 than an inflated one would be.
+
+## 4.2 Hypothesis testing
+
+The thesis states two hypotheses (§1.5), tested here against this run's
+actual nested-CV results (`output/metrics.json` → `hypothesis_tests`,
+computed live by `evaluation.evaluate_hypotheses` — not hand-typed, so it
+cannot silently drift out of sync with the code):
+
+**H1₁ — the tuned Random Forest achieves accuracy ≥ 80%.**
+Point estimate: 83.5% (mean across 5 outer folds) — clears the 80%
+target. However, the 95% bootstrap CI on pooled out-of-fold predictions
+is [78.9%, 87.5%] — its lower bound sits *just under* 80%. **H1₁ is
+therefore supported on the point estimate, but not strictly supported at
+the 95% confidence level.** This is reported as-is rather than rounded
+away: n=303 is small enough that this uncertainty is real, not a
+rounding artifact, and it is exactly the kind of nuance a single
+optimistic accuracy figure (see the "methodology caveat" in
+`docs/literature_comparison.md`) would have hidden.
+
+**H1₂ — clinical attributes differ in their relative contribution to
+predictions.** Permutation importance (computed on genuinely held-out
+folds) shows `ca`, `cp`, and `thal` with importance means exceeding one
+standard deviation from zero, while the remaining ten attributes
+(`slope`, `exang`, `sex`, `oldpeak`, `restecg`, `thalach`, `trestbps`,
+`fbs`, `chol`, `age`) are statistically indistinguishable from zero
+contribution at that resolution. **H1₂ is decisively supported**; H0₂
+(no difference in contribution) is rejected. Caveat: with only 5 outer
+folds this is an informal spread check, not a formal significance test
+with p-values.
 
 ## 5. External validation
+
+Not required by the study's stated scope — thesis §1.6 lists external
+validation among directions for *future* studies rather than this one's
+requirements — but included here to characterise generalisation honestly
+rather than leaving it for later.
 
 The Cleveland-trained model was scored — no retraining, no
 re-imputation, no re-calibration — against three sibling UCI cohorts
