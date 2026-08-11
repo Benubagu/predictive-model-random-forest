@@ -5,9 +5,9 @@ pytest.importorskip("streamlit")  # app.py is optional (requirements-app.txt); s
 import numpy as np
 
 import app
-import predict
-from evaluation import build_pipeline
-from preprocessing import FEATURE_NAMES
+from src.core.evaluation import build_pipeline
+from src.core.preprocessing import FEATURE_NAMES
+from src.inference import predict
 
 
 def test_app_reuses_predict_module_functions_without_reimplementation():

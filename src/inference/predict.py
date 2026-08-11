@@ -1,14 +1,16 @@
 """
-predict.py
------------
+src/inference/predict.py
+--------------------------
 Command-line interface for diagnosing a new patient using the
 trained Random Forest model.
 
-Usage:
-    python3 predict.py
+Usage (from the repository root):
+    python -m src.inference.predict
     (then answer the prompts for each clinical attribute)
 
-Or import predict_patient() into other code / a web interface.
+Or import predict_patient() into other code -- app.py (the Streamlit
+GUI at the repo root) does exactly this, unchanged, so the CLI and the
+GUI can never diverge in prediction behavior.
 """
 
 import json
@@ -17,8 +19,8 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from config import MODEL_PATH, THRESHOLD_PATH
-from preprocessing import FEATURE_NAMES, FEATURE_DESCRIPTIONS
+from src.core.config import MODEL_PATH, THRESHOLD_PATH
+from src.core.preprocessing import FEATURE_NAMES, FEATURE_DESCRIPTIONS
 
 DEFAULT_THRESHOLD = 0.5
 
@@ -28,8 +30,9 @@ def load_model(path=MODEL_PATH):
 
 
 def load_threshold(path=THRESHOLD_PATH):
-    """Load the sensitivity-tuned operating threshold saved by train_model.py.
-    Falls back to 0.5 if the model was trained before this existed."""
+    """Load the sensitivity-tuned operating threshold saved by
+    src/training/train_model.py. Falls back to 0.5 if the model was
+    trained before this existed."""
     try:
         with open(path) as f:
             return json.load(f)["threshold"]

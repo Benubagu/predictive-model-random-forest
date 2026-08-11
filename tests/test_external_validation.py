@@ -1,6 +1,6 @@
-import config
-from external_validation import load_cohort
-from preprocessing import FEATURE_NAMES
+from src.core import config
+from src.analysis.external_validation import load_cohort
+from src.core.preprocessing import FEATURE_NAMES
 
 
 def test_external_cohorts_load_with_matching_schema():

@@ -1,7 +1,7 @@
 import pytest
 
-from config import DATA_PATH
-from preprocessing import clean_data, get_features_and_target, load_raw_data
+from src.core.config import DATA_PATH
+from src.core.preprocessing import clean_data, get_features_and_target, load_raw_data
 
 
 @pytest.fixture(scope="session")

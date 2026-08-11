@@ -5,7 +5,7 @@ Study) states this study "is experimentally limited to the Random Forest
 algorithm" and that Logistic Regression, SVM, kNN, Naive Bayes, Decision
 Trees, and ANN "are considered in the literature review but are not
 experimentally implemented or compared as part of this study." The
-comparison below (`benchmark.py`) does experimentally implement and
+comparison below (`src/analysis/benchmark.py`) does experimentally implement and
 compare Logistic Regression and a Decision Tree against Random Forest, so
 it is documented here, separately from the thesis's main results, rather
 than folded into `docs/report.md` or `docs/model_card.md`.
@@ -17,10 +17,10 @@ revision of the thesis scope paragraph should incorporate it properly.
 
 ## What was run
 
-`benchmark.py` runs Random Forest, Logistic Regression, and a single
+`src/analysis/benchmark.py` runs Random Forest, Logistic Regression, and a single
 Decision Tree under an identical nested cross-validation protocol (same
 outer/inner folds, same seed, same scoring) via
-`evaluation.nested_cv_compare`, so any difference between them reflects
+`src/core/evaluation.py::nested_cv_compare`, so any difference between them reflects
 the algorithms, not an uneven evaluation.
 
 ## Results

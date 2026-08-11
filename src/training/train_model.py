@@ -1,10 +1,13 @@
 """
-train_model.py
-----------------
+src/training/train_model.py
+-----------------------------
 Trains and evaluates a Random Forest classifier for heart disease
 diagnosis.
 
-Methodology (see evaluation.py for the "why"):
+Run from the repository root as a module:
+    python -m src.training.train_model
+
+Methodology (see src/core/evaluation.py for the "why"):
   1. Nested cross-validation gives an honest, low-variance estimate of
      generalization performance (mean +/- std across outer folds) plus
      bootstrap confidence intervals, computed from leakage-free
@@ -39,11 +42,11 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
-import config
-from evaluation import (
+from src.core import config
+from src.core.evaluation import (
     build_pipeline, bootstrap_ci, evaluate_hypotheses, nested_cv_evaluate, select_operating_threshold,
 )
-from preprocessing import load_raw_data, clean_data, get_features_and_target, FEATURE_NAMES
+from src.core.preprocessing import load_raw_data, clean_data, get_features_and_target, FEATURE_NAMES
 
 logger = logging.getLogger(__name__)
 

@@ -4,18 +4,22 @@ app.py
 Streamlit GUI for the trained Random Forest heart disease model
 (Objective 6 / RQ6: "a functional prediction interface"). This is a thin
 UI layer only -- all prediction logic is imported unchanged from
-predict.py (load_model, load_threshold, predict_patient), so the CLI and
-this app can never diverge in behavior.
+src/inference/predict.py (load_model, load_threshold, predict_patient),
+so the CLI and this app can never diverge in behavior.
 
-Usage:
+This file must stay at the repository root (not under src/): it's the
+one entry point meant to be launched directly by name (`streamlit run
+app.py`), so it needs to sit where that command is naturally run from.
+
+Usage (from the repository root):
     streamlit run app.py
 """
 
 import numpy as np
 import streamlit as st
 
-from predict import load_model, load_threshold, predict_patient
-from preprocessing import FEATURE_DESCRIPTIONS, FEATURE_NAMES, VALID_VALUES
+from src.inference.predict import load_model, load_threshold, predict_patient
+from src.core.preprocessing import FEATURE_DESCRIPTIONS, FEATURE_NAMES, VALID_VALUES
 
 UNKNOWN = "Unknown"
 

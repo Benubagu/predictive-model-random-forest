@@ -20,8 +20,9 @@ anyone.
   `class_weight="balanced"`.
 - **Decision threshold**: 0.164 (not 0.5) on calibrated probabilities,
   chosen to guarantee ≥95% sensitivity — see "Operating point" below.
-- **Training procedure**: `train_model.py`. Methodology: `evaluation.py`
-  (nested cross-validation) — see `README.md` for the full rationale.
+- **Training procedure**: `src/training/train_model.py`. Methodology:
+  `src/core/evaluation.py` (nested cross-validation) — see `README.md`
+  for the full rationale.
 
 ## Intended use
 
@@ -68,7 +69,7 @@ the thesis's H1₁ hypothesis is tested against.
 
 ### Hypothesis tests
 
-Computed live by `evaluation.evaluate_hypotheses` from the numbers
+Computed live by `src.core.evaluation.evaluate_hypotheses` from the numbers
 above and saved to `output/metrics.json` → `hypothesis_tests` (not
 hand-typed, so it cannot silently drift from the code). Full discussion:
 `docs/report.md` § "Hypothesis testing".
@@ -94,7 +95,8 @@ than a false alarm in a screening context:
 
 This is a deliberate trade-off, not an oversight: the model over-refers
 borderline patients rather than risk missing disease. A different
-`--target-sensitivity` would move this trade-off; see `train_model.py --help`.
+`--target-sensitivity` would move this trade-off; see
+`python -m src.training.train_model --help`.
 
 ### Out-of-distribution: external validation
 
@@ -104,7 +106,7 @@ characterise generalisation honestly rather than leaving it for later.
 The model — trained, imputed, and calibrated exclusively on Cleveland
 data — was scored as-is against three sibling UCI cohorts it never saw,
 collected at different sites with different equipment and data
-practices (`external_validation.py`):
+practices (`src/analysis/external_validation.py`):
 
 | Cohort | n | Prevalence | ROC-AUC | Accuracy @ 0.5 | Sensitivity @ operating threshold | Specificity @ operating threshold |
 |---|---|---|---|---|---|---|
@@ -177,7 +179,7 @@ importance but not under permutation importance; see
 - If pursuing this further, see `docs/appendix_baseline_comparison.md`:
   Logistic Regression's competitiveness there is worth taking seriously
   in a future study whose scope includes a multi-algorithm comparison.
-- Re-run `train_model.py --target-sensitivity` at a different value
-  before assuming 0.95 is the right clinical target — that number was a
+- Re-run `python -m src.training.train_model --target-sensitivity` at a
+  different value before assuming 0.95 is the right clinical target — that number was a
   reasonable default choice for this exercise, not a validated clinical
   guideline.

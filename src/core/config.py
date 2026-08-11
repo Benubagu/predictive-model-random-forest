@@ -1,9 +1,10 @@
 """
-config.py
----------
+src/core/config.py
+-------------------
 Centralized paths and constants for the heart disease Random Forest
-system. train_model.py, evaluation.py, and predict.py all import from
-here so they never disagree on where data, models, or outputs live.
+system. Every entry point (src/training/train_model.py,
+src/inference/predict.py, src/analysis/*.py, app.py) imports from here
+so they never disagree on where data, models, or outputs live.
 """
 
 import sys
@@ -16,7 +17,10 @@ if sys.version_info < MIN_PYTHON:
         f"found {sys.version.split()[0]}"
     )
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+# This file lives at <repo_root>/src/core/config.py, so the repo root is
+# three levels up. Paths below (data/, model/, output/) are all at the
+# repo root regardless of which entry point imports this module.
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 DATA_PATH = PROJECT_ROOT / "data" / "heart.csv"
 EXTERNAL_DATA_DIR = PROJECT_ROOT / "data" / "external"

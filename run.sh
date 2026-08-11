@@ -30,19 +30,19 @@ clean() {
 }
 
 train() {
-    "$PYTHON" train_model.py
+    "$PYTHON" -m src.training.train_model
 }
 
 external() {
-    "$PYTHON" external_validation.py
+    "$PYTHON" -m src.analysis.external_validation
 }
 
 benchmark() {
-    "$PYTHON" benchmark.py
+    "$PYTHON" -m src.analysis.benchmark
 }
 
 tuning() {
-    "$PYTHON" tuning_effect.py
+    "$PYTHON" -m src.analysis.tuning_effect
 }
 
 run_tests() {

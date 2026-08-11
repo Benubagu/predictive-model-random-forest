@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from preprocessing import (
+from src.core.preprocessing import (
     EXPECTED_COLUMNS, EXPECTED_ROWS, FEATURE_NAMES, clean_data, validate_raw_data,
 )
 

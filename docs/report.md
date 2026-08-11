@@ -24,7 +24,7 @@ flagging as an external-validity caveat rather than silently ignoring).
 **Missingness**: minimal in Cleveland — 4 missing `ca` values, 2 missing
 `thal`, nothing else. This is why a naive single-impute-then-split
 pipeline "worked" well enough to not obviously break in an earlier
-version of this project (see `preprocessing.py`'s docstring) — the
+version of this project (see `src/core/preprocessing.py`'s docstring) — the
 leakage was real but small, because there was almost nothing to leak.
 That stops being true for the external cohorts (§5), where missingness
 is substantial.
@@ -54,7 +54,7 @@ demotes both.
 
 ## 2. Preprocessing
 
-`preprocessing.py` converts `?` missing-value markers to `NaN`, casts
+`src/core/preprocessing.py` converts `?` missing-value markers to `NaN`, casts
 columns to numeric, and derives the binary target
 (`diagnosis > 0`). It deliberately does **not** impute — see §3.
 
@@ -74,11 +74,11 @@ order of how much they matter:
    were median-imputed once on the full dataset before splitting into
    train/test — a train/test leak, because the test set's own values
    contributed to the training-time statistic used to fill it in.
-   `evaluation.build_pipeline()` now wraps `SimpleImputer` and the
+   `src/core/evaluation.py::build_pipeline()` now wraps `SimpleImputer` and the
    classifier in one `sklearn.Pipeline`, refit on every training fold.
 2. **Nested cross-validation replaced a single 80/20 split.** A
    61-patient test set is too small to report accuracy to a tenth of a
-   percent with any confidence. `evaluation.nested_cv_evaluate()` uses
+   percent with any confidence. `src/core/evaluation.py::nested_cv_evaluate()` uses
    an outer loop (5 folds) for the performance estimate and an inner
    loop (5 folds, run independently per outer fold) for hyperparameter
    search, so every patient is a test case exactly once and no fold's
@@ -91,7 +91,7 @@ order of how much they matter:
 4. **Threshold tuning.** A missed disease case (false negative) is far
    costlier than a false alarm in a screening context, so the decision
    threshold is chosen to guarantee ≥95% sensitivity rather than
-   defaulting to 0.5 — see `evaluation.select_operating_threshold()`.
+   defaulting to 0.5 — see `src.core.evaluation.select_operating_threshold()`.
 5. **Permutation importance alongside impurity importance**, since
    impurity importance is known to be biased toward high-cardinality
    continuous features (`age`, `chol`) — see §4.
@@ -125,7 +125,7 @@ the raw correlation) does not — a textbook case of impurity importance
 overweighting a high-cardinality continuous feature.
 
 A supplementary comparison against Logistic Regression and a Decision
-Tree was also run (`benchmark.py`) but is documented separately in
+Tree was also run (`src/analysis/benchmark.py`) but is documented separately in
 `docs/appendix_baseline_comparison.md`, not here — thesis §1.7 scopes
 this study to Random Forest only, so a multi-algorithm comparison, while
 implemented and preserved, is not reported as a finding of this study.
@@ -133,7 +133,7 @@ implemented and preserved, is not reported as a finding of this study.
 ## 4.1 Effect of hyperparameter tuning (RQ3)
 
 RQ3 asks: *"to what extent does hyperparameter tuning affect the
-predictive performance of the Random Forest classifier?"* `tuning_effect.py`
+predictive performance of the Random Forest classifier?"* `src/analysis/tuning_effect.py`
 answers this directly by running the same Random Forest pipeline under
 the same nested CV protocol twice — once with scikit-learn's default
 hyperparameters, once with the tuned grid search space
@@ -166,7 +166,7 @@ is a more useful answer to RQ3 than an inflated one would be.
 
 The thesis states two hypotheses (§1.5), tested here against this run's
 actual nested-CV results (`output/metrics.json` → `hypothesis_tests`,
-computed live by `evaluation.evaluate_hypotheses` — not hand-typed, so it
+computed live by `src.core.evaluation.evaluate_hypotheses` — not hand-typed, so it
 cannot silently drift out of sync with the code):
 
 **H1₁ — the tuned Random Forest achieves accuracy ≥ 80%.**

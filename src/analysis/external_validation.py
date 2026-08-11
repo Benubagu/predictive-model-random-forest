@@ -1,15 +1,17 @@
 """
-external_validation.py
-------------------------
+src/analysis/external_validation.py
+--------------------------------------
 Scores the trained Cleveland model against the Hungarian, Switzerland,
 and VA Long Beach cohorts -- the same 13 UCI attributes, collected at
 three different sites with different equipment and data entry practices.
 This is a genuine generalization test: the model, its imputer, and its
-calibration were all fit exclusively on Cleveland data in train_model.py,
-so nothing about these cohorts' own distribution influences how they are
-processed here.
+calibration were all fit exclusively on Cleveland data in
+src/training/train_model.py, so nothing about these cohorts' own
+distribution influences how they are processed here.
 
-Run after train_model.py has produced model/random_forest_heart_model.joblib.
+Run (from the repository root) after training has produced
+model/random_forest_heart_model.joblib:
+    python -m src.analysis.external_validation
 
 Known data quality note: Switzerland (all 123 rows) and VA Long Beach
 (49/200 rows) encode missing cholesterol as a literal 0 rather than '?'.
@@ -30,9 +32,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.metrics import confusion_matrix, roc_curve
 
-import config
-from evaluation import compute_metrics
-from preprocessing import clean_data, get_features_and_target, load_raw_data
+from src.core import config
+from src.core.evaluation import compute_metrics
+from src.core.preprocessing import clean_data, get_features_and_target, load_raw_data
 
 logger = logging.getLogger(__name__)
 

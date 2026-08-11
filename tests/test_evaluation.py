@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from evaluation import (
+from src.core.evaluation import (
     bootstrap_ci, build_pipeline, evaluate_hypotheses, nested_cv_compare,
     nested_cv_evaluate, select_operating_threshold,
 )

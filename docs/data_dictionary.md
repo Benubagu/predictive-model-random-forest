@@ -23,22 +23,23 @@ original multi-class diagnosis label.
 
 ## Target
 
-`preprocessing.clean_data()` collapses `diagnosis` into a binary `target`
-column: `0` = no disease, any value `> 0` = disease present.
+`src.core.preprocessing.clean_data()` collapses `diagnosis` into a binary
+`target` column: `0` = no disease, any value `> 0` = disease present.
 
 ## Known data quality notes
 
 - A small number of missing values are encoded as `?` in the raw CSV
-  (mainly in `ca` and `thal`). `preprocessing.py` converts these to `NaN`
-  but does not impute — imputation happens inside the training pipeline
-  (see `evaluation.build_pipeline`), refit on each CV fold, so the median
-  used for a held-out patient never comes from that patient's own fold.
+  (mainly in `ca` and `thal`). `src/core/preprocessing.py` converts these
+  to `NaN` but does not impute — imputation happens inside the training
+  pipeline (see `src/core/evaluation.py::build_pipeline`), refit on each
+  CV fold, so the median used for a held-out patient never comes from
+  that patient's own fold.
 - Class balance in the raw multi-class counts is mildly imbalanced
   (164 vs 139), which is why `RandomForestClassifier` is trained with
   `class_weight="balanced"`.
 - `data/external/` holds three sibling UCI cohorts (Hungarian, Switzerland,
   VA Long Beach) used for external validation only — see
-  `external_validation.py` and the model card. They are **not** used for
+  `src/analysis/external_validation.py` and the model card. They are **not** used for
   training. Two of them encode missing cholesterol as a literal `0`
   instead of `?` (all 123 Switzerland rows; 49/200 VA rows) — physiologically
   impossible in a living patient. `clean_data()` treats `chol`/`trestbps`

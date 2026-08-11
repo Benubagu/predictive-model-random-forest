@@ -1,6 +1,6 @@
 """
-tuning_effect.py
-------------------
+src/analysis/tuning_effect.py
+--------------------------------
 Answers RQ3 ("to what extent does hyperparameter tuning affect the
 predictive performance of the Random Forest classifier?") directly:
 runs the *same* Random Forest pipeline under the *same* nested CV
@@ -11,6 +11,9 @@ grid search space (config.PARAM_GRID) -- and reports the delta.
 This stays within the thesis's single-algorithm scope (Sec. 1.7): both
 sides of the comparison are Random Forest, differing only in
 hyperparameters, not in algorithm.
+
+Run from the repository root:
+    python -m src.analysis.tuning_effect
 """
 
 import argparse
@@ -23,9 +26,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-import config
-from evaluation import build_pipeline, nested_cv_compare
-from preprocessing import clean_data, get_features_and_target, load_raw_data
+from src.core import config
+from src.core.evaluation import build_pipeline, nested_cv_compare
+from src.core.preprocessing import clean_data, get_features_and_target, load_raw_data
 
 logger = logging.getLogger(__name__)
 

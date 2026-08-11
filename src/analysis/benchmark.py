@@ -1,6 +1,6 @@
 """
-benchmark.py
--------------
+src/analysis/benchmark.py
+---------------------------
 Compares the production Random Forest pipeline against two simpler
 baselines -- Logistic Regression and a single Decision Tree -- under the
 same nested cross-validation protocol (config.OUTER_CV_FOLDS /
@@ -9,6 +9,12 @@ whatever gap shows up between Random Forest and Logistic Regression is a
 real gap, not an artifact of unequal evaluation, and Logistic Regression
 being competitive would be a legitimate reason to prefer its
 interpretability instead.
+
+Supplementary / outside the thesis's single-algorithm scope -- see
+docs/appendix_baseline_comparison.md.
+
+Run from the repository root:
+    python -m src.analysis.benchmark
 """
 
 import argparse
@@ -21,9 +27,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-import config
-from evaluation import build_baseline_pipeline, build_pipeline, nested_cv_compare
-from preprocessing import clean_data, get_features_and_target, load_raw_data
+from src.core import config
+from src.core.evaluation import build_baseline_pipeline, build_pipeline, nested_cv_compare
+from src.core.preprocessing import clean_data, get_features_and_target, load_raw_data
 
 logger = logging.getLogger(__name__)
 

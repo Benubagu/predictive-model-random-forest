@@ -1,6 +1,6 @@
 """
-preprocessing.py
------------------
+src/core/preprocessing.py
+--------------------------
 Loads and cleans the heart disease dataset for the
 Random Forest heart disease diagnosis system.
 
@@ -9,8 +9,8 @@ Dataset: Cleveland Heart Disease dataset (UCI Machine Learning Repository)
 
 Note: this module does NOT impute missing values. Imputation is a fold-
 dependent statistic (the median must come from the training fold only),
-so it lives inside the sklearn Pipeline built in evaluation.py, fit
-fresh on each cross-validation split rather than once on the full
+so it lives inside the sklearn Pipeline built in src/core/evaluation.py,
+fit fresh on each cross-validation split rather than once on the full
 dataset before splitting.
 """
 
@@ -130,7 +130,7 @@ def get_features_and_target(df: pd.DataFrame):
 
 
 if __name__ == "__main__":
-    from config import DATA_PATH
+    from src.core.config import DATA_PATH
 
     raw = load_raw_data(DATA_PATH)
     clean = clean_data(raw)

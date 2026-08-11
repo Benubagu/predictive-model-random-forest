@@ -3,9 +3,9 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from evaluation import build_pipeline
-from predict import predict_patient
-from preprocessing import FEATURE_NAMES
+from src.core.evaluation import build_pipeline
+from src.inference.predict import predict_patient
+from src.core.preprocessing import FEATURE_NAMES
 
 
 @pytest.fixture(scope="module")
